@@ -83,6 +83,8 @@ def get_args_parser():
     parser.add_argument('--coco_path', type=str)
     parser.add_argument('--coco_panoptic_path', type=str)
     parser.add_argument('--remove_difficult', action='store_true')
+    parser.add_argument('--carla_path', type=str)
+    parser.add_argument('--carla_panoptic_path', type=str)
 
     parser.add_argument('--output_dir', default='',
                         help='path where to save, empty for no saving')
@@ -157,9 +159,9 @@ def main(args):
     data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
                                  drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
 
-    if args.dataset_file == "coco_panoptic":
+    if args.dataset_file == "carla_panoptic":
         # We also evaluate AP during panoptic training, on original coco DS
-        coco_val = datasets.coco.build("val", args)
+        coco_val = datasets.carla.build("val", args)
         base_ds = get_coco_api_from_dataset(coco_val)
     else:
         base_ds = get_coco_api_from_dataset(dataset_val)
