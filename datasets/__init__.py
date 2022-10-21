@@ -5,7 +5,7 @@ import torchvision
 from .coco import build as build_coco
 
 
-def get_coco_api_from_dataset(dataset):
+def get_carla_api_from_dataset(dataset):
     for _ in range(10):
         # if isinstance(dataset, torchvision.datasets.CocoDetection):
         #     break

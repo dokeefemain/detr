@@ -10,18 +10,18 @@ import torch
 import torch.utils.data
 import torchvision
 from pycocotools import mask as coco_mask
-
+from .carla_panoptic import CarlaPanoptic
 import datasets.transforms as T
 
 
-class CocoDetection(torchvision.datasets.CocoDetection):
+class CarlaDetection(CarlaPanoptic):
     def __init__(self, img_folder, ann_file, transforms, return_masks):
-        super(CocoDetection, self).__init__(img_folder, ann_file)
+        super(CarlaDetection, self).__init__(img_folder, ann_file)
         self._transforms = transforms
         self.prepare = ConvertCocoPolysToMask(return_masks)
 
     def __getitem__(self, idx):
-        img, target = super(CocoDetection, self).__getitem__(idx)
+        img, target = super(CarlaDetection, self).__getitem__(idx)
         image_id = self.ids[idx]
         target = {'image_id': image_id, 'annotations': target}
         img, target = self.prepare(img, target)
@@ -145,14 +145,14 @@ def make_carla_transforms(image_set):
 
 
 def build(image_set, args):
-    root = Path(args.coco_path)
+    root = Path(args.carla_panoptic_path)
     assert root.exists(), f'provided COCO path {root} does not exist'
-    mode = 'instances'
+    mode = 'panoptic'
     PATHS = {
-        "train": (root / "train2017", root / "annotations" / f'{mode}_train2017.json'),
-        "val": (root / "val2017", root / "annotations" / f'{mode}_val2017.json'),
+        "train": (root / "train", root / "annotations" / f'{mode}_train.json'),
+        "val": (root / "val", root / "annotations" / f'{mode}_val.json'),
     }
 
     img_folder, ann_file = PATHS[image_set]
-    dataset = CocoDetection(img_folder, ann_file, transforms=make_coco_transforms(image_set), return_masks=args.masks)
+    dataset = CarlaDetection(img_folder, ann_file, transforms=make_carla_transforms(image_set), return_masks=args.masks)
     return dataset

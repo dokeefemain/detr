@@ -11,8 +11,9 @@ import torch
 from torch.utils.data import DataLoader, DistributedSampler
 
 import datasets
+from datasets.carla import build
 import util.misc as utils
-from datasets import build_dataset, get_coco_api_from_dataset
+from datasets import build_dataset, get_carla_api_from_dataset
 from engine import evaluate, train_one_epoch
 from models import build_model
 
@@ -143,7 +144,7 @@ def main(args):
 
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
-
+    print(dataset_train.__getitem__(0))
     if args.distributed:
         sampler_train = DistributedSampler(dataset_train)
         sampler_val = DistributedSampler(dataset_val, shuffle=False)
@@ -161,8 +162,8 @@ def main(args):
 
     if args.dataset_file == "carla_panoptic":
         # We also evaluate AP during panoptic training, on original coco DS
-        coco_val = datasets.carla.build("val", args)
-        base_ds = get_coco_api_from_dataset(coco_val)
+        carla_val = dataset_val
+        #base_ds = get_carla_api_from_dataset(carla_val)
     else:
         base_ds = get_coco_api_from_dataset(dataset_val)
 
@@ -183,12 +184,12 @@ def main(args):
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             args.start_epoch = checkpoint['epoch'] + 1
 
-    if args.eval:
-        test_stats, coco_evaluator = evaluate(model, criterion, postprocessors,
-                                              data_loader_val, base_ds, device, args.output_dir)
-        if args.output_dir:
-            utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
-        return
+    #if args.eval:
+        #test_stats, carla_evaluator = evaluate(model, criterion, postprocessors,
+        #                                      data_loader_val, base_ds, device, args.output_dir)
+        #if args.output_dir:
+        #    utils.save_on_master(carla_evaluator.carla_eval["bbox"].eval, output_dir / "eval.pth")
+        #return
 
     print("Start training")
     start_time = time.time()
@@ -213,12 +214,12 @@ def main(args):
                     'args': args,
                 }, checkpoint_path)
 
-        test_stats, coco_evaluator = evaluate(
-            model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
-        )
+        #test_stats, carla_evaluator = evaluate(
+        #    model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir
+        #)
+        carla_evaluator = None
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
                      'n_parameters': n_parameters}
 
@@ -227,14 +228,14 @@ def main(args):
                 f.write(json.dumps(log_stats) + "\n")
 
             # for evaluation logs
-            if coco_evaluator is not None:
+            if carla_evaluator is not None:
                 (output_dir / 'eval').mkdir(exist_ok=True)
-                if "bbox" in coco_evaluator.coco_eval:
+                if "bbox" in carla_evaluator.coco_eval:
                     filenames = ['latest.pth']
                     if epoch % 50 == 0:
                         filenames.append(f'{epoch:03}.pth')
                     for name in filenames:
-                        torch.save(coco_evaluator.coco_eval["bbox"].eval,
+                        torch.save(carla_evaluator.coco_eval["bbox"].eval,
                                    output_dir / "eval" / name)
 
     total_time = time.time() - start_time
