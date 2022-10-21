@@ -8,7 +8,7 @@
 **/__pycache__/**
 .ipynb_checkpoints/
 datasets/data/
-datasets/carla/
+datasets/carla1/
 out/
 experiment-*
 *.tmp
