@@ -368,7 +368,7 @@ def build(args):
     postprocessors = {'bbox': PostProcess()}
     if args.masks:
         postprocessors['segm'] = PostProcessSegm()
-        if args.dataset_file == "coco_panoptic":
+        if args.dataset_file == "carla_panoptic":
             is_thing_map = {i: i <= 90 for i in range(201)}
             postprocessors["panoptic"] = PostProcessPanoptic(is_thing_map, threshold=0.85)
 

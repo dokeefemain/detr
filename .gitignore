@@ -9,7 +9,11 @@
 .ipynb_checkpoints/
 datasets/data/
 datasets/carla1/
+<<<<<<< HEAD
 datasets/carla2/
+=======
+datasets/test_images/
+>>>>>>> 33b1467423a52e48bd84b5b78a908bfd336f7009
 out/
 experiment-*
 *.tmp

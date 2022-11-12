@@ -102,7 +102,12 @@ def get_args_parser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+<<<<<<< HEAD
     parser.add_argument('--pretrained', action='store_true')
+=======
+    parser.add_argument('--pretrained', default=False)
+    parser.add_argument('--load_model', default="")
+>>>>>>> 33b1467423a52e48bd84b5b78a908bfd336f7009
     return parser
 
 
