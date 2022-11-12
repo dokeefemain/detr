@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import argparse
 import datetime
 import json
@@ -126,7 +127,6 @@ def main(args):
     model.to(device)
 
     model_without_ddp = model
-    print("test")
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
@@ -156,13 +156,19 @@ def main(args):
 
     batch_sampler_train = torch.utils.data.BatchSampler(
         sampler_train, args.batch_size, drop_last=True)
-
+    batch_sampler_val = torch.utils.data.BatchSampler(
+        sampler_val, args.batch_size, drop_last=True)
     data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train,
                                    collate_fn=utils.collate_fn, num_workers=args.num_workers)
+    data_loader_val = DataLoader(dataset_val, args, sampler=sampler_val,
+                                 drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
 
-    # data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
-    #                              drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
-
+    if args.dataset_file == "carla_panoptic":
+        # We also evaluate AP during panoptic training, on original coco DS
+        carla_val = dataset_val
+        #base_ds = get_carla_api_from_dataset(carla_val)
+    else:
+        base_ds = get_coco_api_from_dataset(dataset_val)
 
     if args.frozen_weights is not None:
         checkpoint = torch.load(args.frozen_weights, map_location='cpu')
@@ -181,19 +187,21 @@ def main(args):
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             args.start_epoch = checkpoint['epoch'] + 1
 
+    #if args.eval:
+        #test_stats, carla_evaluator = evaluate(model, criterion, postprocessors,
+        #                                      data_loader_val, base_ds, device, args.output_dir)
+        #if args.output_dir:
+        #    utils.save_on_master(carla_evaluator.carla_eval["bbox"].eval, output_dir / "eval.pth")
+        #return
+
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             sampler_train.set_epoch(epoch)
-            sampler_val.set_epoch(epoch)
-
         train_stats = train_one_epoch(
             model, criterion, data_loader_train, optimizer, device, epoch,
             args.clip_max_norm)
-        # test_stats = evaluate(
-        #     model, criterion, data_loader_val, optimizer, device, epoch, args.clip_max_norm)
-
         lr_scheduler.step()
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint.pth']
@@ -208,27 +216,38 @@ def main(args):
                     'epoch': epoch,
                     'args': args,
                 }, checkpoint_path)
-
+        test_stats = evaluate(model,criterion, data_loader_val, optimizer, device, epoch, args.clip_max_norm)
+        #test_stats, carla_evaluator = evaluate(
+        #    model, criterion, postprocessors, data_loader_val, carla_val, device, args.output_dir
+        #)
         carla_evaluator = None
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      'epoch': epoch,
+                     'n_parameters': n_parameters} 
+
+        log_val = {**{f'val_{k}': v for k, v in test_stats.items()},
+                     'epoch': epoch,
                      'n_parameters': n_parameters}
 
-        # log_val = {**{f'val_{k}': v for k, v in test_stats.items()},
-        #              'epoch': epoch,
-        #              'n_parameters': n_parameters}
+        (output_dir / 'eval').mkdir(exist_ok=True)
 
-
+        with (output_dir / 'eval/log.txt').open('a') as f:
+            f.write(json.dumps(log_val) + "\n")
         if args.output_dir and utils.is_main_process():
             with (output_dir / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
-            # (output_dir / 'eval').mkdir(exist_ok=True)
-            #
-            # with (output_dir / 'eval/log.txt').open('a') as f:
-            #     f.write(json.dumps(log_val) + "\n")
-
+            # for evaluation logs
+            if carla_evaluator is not None:
+                (output_dir / 'eval').mkdir(exist_ok=True)
+                if "bbox" in carla_evaluator.coco_eval:
+                    filenames = ['latest.pth']
+                    if epoch % 50 == 0:
+                        filenames.append(f'{epoch:03}.pth')
+                    for name in filenames:
+                        torch.save(carla_evaluator.coco_eval["bbox"].eval,
+                                   output_dir / "eval" / name)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

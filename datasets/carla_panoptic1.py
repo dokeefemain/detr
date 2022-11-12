@@ -42,7 +42,7 @@ def make_carla_transforms(image_set):
 
 
 class CarlaPanoptic:
-    def __init__(self, img_folder, ann_folder, ann_file, transforms=None, return_masks=True, bbs = True):
+    def __init__(self, img_folder, ann_folder, ann_file, transforms=None, return_masks=True):
         with open(ann_file, 'r') as f:
             self.carla = json.load(f)
 
@@ -59,7 +59,6 @@ class CarlaPanoptic:
         self.ann_file = ann_file
         self.transforms = transforms
         self.return_masks = return_masks
-        self.bbs = bbs
 
     def __getitem__(self, idx):
         ann_info = self.carla['annotations'][idx]
@@ -76,17 +75,6 @@ class CarlaPanoptic:
             #print(np.unique(masks[:,:,0]))
             #masks = cv2.imread(str(ann_path))
             #masks = rgb2id(masks)
-            
-            if self.bbs:
-                print("bbs test")
-                tmp_info = []
-                test = np.isin(masks[:,:,0], [9,10])
-                masks[test] = [0,0,0]
-                for i in ann_info["segments_info"]:
-                    if i["category_id"] not in [9,10]:
-                        tmp_info.append(i)
-                ann_info["segments_info"] = tmp_info
-
             masks = masks[:, :, 0] + masks[:, :, 1] * 256 + masks[:, :, 2] * 256 ** 2
 
             ids = np.array([ann['id'] for ann in ann_info['segments_info']])
@@ -102,7 +90,6 @@ class CarlaPanoptic:
         target['labels'] = labels
 
         target["boxes"] = masks_to_boxes(masks)
-        #print(target["boxes"])
         
 
         target['size'] = torch.as_tensor([int(h), int(w)])
@@ -143,6 +130,6 @@ def build(image_set, args):
     ann_file = ann_folder_root / ann_file
 
     dataset = CarlaPanoptic(img_folder_path, ann_folder, ann_file,
-                           transforms=make_carla_transforms(image_set), return_masks=args.masks, bbs=args.bbs)
+                           transforms=make_carla_transforms(image_set), return_masks=args.masks)
 
     return dataset

@@ -320,14 +320,30 @@ def build(args):
     backbone = build_backbone(args)
 
     transformer = build_transformer(args)
+    if args.pretrained:
+        model = DETR(
+            backbone,
+            transformer,
+            num_classes=num_classes,
+            num_queries=args.num_queries,
+            aux_loss=args.aux_loss,
+        )
 
-    model = DETR(
-        backbone,
-        transformer,
-        num_classes=num_classes,
-        num_queries=args.num_queries,
-        aux_loss=args.aux_loss,
-    )
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url='https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth',
+            map_location='cpu',
+            check_hash=True)
+        checkpoint["model"]["class_embed.weight"] = model.state_dict()["class_embed.weight"]
+        checkpoint["model"]["class_embed.bias"] = model.state_dict()["class_embed.bias"]
+        model.load_state_dict(checkpoint["model"], strict=False) 
+    else:
+        model = DETR(
+            backbone,
+            transformer,
+            num_classes=num_classes,
+            num_queries=args.num_queries,
+            aux_loss=args.aux_loss,
+        )
     if args.masks:
         model = DETRsegm(model, freeze_detr=(args.frozen_weights is not None))
     matcher = build_matcher(args)

@@ -9,6 +9,7 @@
 .ipynb_checkpoints/
 datasets/data/
 datasets/carla1/
+datasets/carla2/
 out/
 experiment-*
 *.tmp
